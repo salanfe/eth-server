@@ -17,7 +17,7 @@ Vagrant.configure("2") do |config|
     config.vm.provision "ansible" do |ansible|
       ansible.compatibility_mode="2.0"
       
-      # dummy playbook just to get the VM up
-      ansible.playbook = "playbooks/ping.yaml"
+      # playbook to set up the virtualbox VM
+      ansible.playbook = "playbooks/init-vagrant.yaml"
     end
 end

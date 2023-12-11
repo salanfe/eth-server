@@ -4,13 +4,16 @@
     - name: Ping my hosts
       ansible.builtin.ping:
 
-- name: Update apt cache and upgrade distro
+- name: Update and upgrade apt packages
+  # sudo apt dist-upgrade is not managed by ansible. Run it yourself and decide if you want to reboot the server as well
+  # similarly with autoremove and autoclean, etc. Decide when to run them as they can cause some issues.
   become: true
   hosts: all
   tasks:
     - ansible.builtin.apt:
+        upgrade: yes
         update_cache: yes
-        upgrade: safe
+        cache_valid_time: 86400 #One day
 
 - name: Fail2Ban
   become: true
@@ -285,6 +288,7 @@
         name: grafana.grafana.grafana_agent
       # role doc: https://github.com/grafana/grafana-ansible-collection/blob/main/roles/grafana_agent/README.md
       vars:
+        # grafana_agent_version: "latest" # https://github.com/grafana/agent/releases/
         grafana_agent_user: root # required by cAdvisor
         grafana_agent_user_groups:
         - docker # required by cAdvisor
@@ -297,13 +301,13 @@
                     username: "{{ grafana.metrics_username }}"
                   url: "{{ grafana.prometheus_url }}"
               scrape_configs:
-                - job_name: "{{ execution.client }}"
+                - job_name: "execution_client"
                   metrics_path: /metrics
                   scheme: http
                   static_configs:
                     - targets:
                         - 127.0.0.1:{{ execution.metrics_port }}
-                - job_name: "{{ consensus.client }}"
+                - job_name: "consensus_client"
                   metrics_path: /metrics
                   scheme: http
                   static_configs:

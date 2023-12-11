@@ -15,6 +15,14 @@ Eth Docker is a real utility software. This project here is mainly hacked togeth
 2. it is opinionated: there could be a million of combination of OS and software to create a server for staking. As much as we want diversity in the staking ecosystem, this project only focuses on a simple and rather mainstream solution.
 3. production ready: although simple, this ansible playbook should be reliable to setup a secured server, ready for staking.
 
+## Scope
+
+This project is meant for solo stakers with a single server.
+
+Out of scope are:
+* multi-tenant setup
+* managing a fleet of N servers
+
 ## Why this project
 
 I don't enjoy configuring my server. And I always forget what I've done and how. So I want to automate and document those mundane tasks. Moreover, if my server dies, I want to be able to recreate it within minutes, and in a deterministic and reproducible fashion. Ansible was designed for that !

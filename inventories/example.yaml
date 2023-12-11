@@ -37,5 +37,5 @@ servers:
       prometheus_url: "<url_to_your_grafana_cloud_prom_endpoint>"
       logs_username: "<secret_loki_username>"
       loki_url: "<url_to_your_grafana_cloud_loki_endpoint>"
-      instance_name: "vagrant-dev"
+      instance_name: "foo" # this will show up in the grafana dashboards. If not sure, use the same value as ansible_host
       oncall_alertmanager_heartbeat_endpoint: "<url_to_your_grafana_cloud_oncall_alertmananger_endpoint>"

@@ -1,14 +1,21 @@
 # this file is used as a template. Please, don't edit it. Instead copy this file to 2 files: one named `prod.yaml` and the other
 # named `local.yaml`. Then add fill those files with the secret values. Because of the secrets, `prod.yaml` and `local.yaml` are
 # ignored in .gitignore.
+
 servers:
   hosts:
     staker:
-      # ssh connection
+      # ssh connection for Vagrant (comment block if needed)
       ansible_host: 127.0.0.1
       ansible_ssh_port: 2222
       ansible_ssh_user: vagrant
       ansible_ssh_private_key_file: .vagrant/machines/default/virtualbox/private_key
+      
+      # ssh connection for staking server (uncomment block)
+      # ansible_host: "<your server hostname or its IP on your local network>"
+      # ansible_ssh_port: 22
+      # ansible_ssh_user: "<your username to SSH into the host>"
+      # ansible_ssh_private_key_file: "path to your SSH private key, e.g. ~/.ssh/id_ed25519"
 
   # playbook variables
   vars:

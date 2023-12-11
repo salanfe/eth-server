@@ -5,7 +5,7 @@ This project is inspired by [Eth Docker](https://eth-docker.net/) and they are c
 1. eth-server sets up your staking server
 2. then eth-docker sets up your ethereum clients
 
-So far, this project works for me and I feel like sharing it. However, it's quite focused on my setup and what works for me. Therefore, my current motivation is to inspire others, but not necessary to extend it so that I can meet everyone's custom needs and setup.
+So far, this project works for me and I feel like sharing it. My current motivation is to inspire others, but not necessary to extend it so that I can meet everyone's custom needs and setup.
 
 Eth Docker is a real utility software. This project here is mainly hacked together.
 
@@ -63,7 +63,7 @@ Laptop
 * [ ] install [Cloudflared client](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
 
 Internet Box
-* [ ] either get a static public IP for your server, or set up a dynamic name resolution (most box should offer that). My ISP doesn't offer static IP, but I don't have a dynamic name of the form `<my-sub-domain>.<my-isp-domain>.com`. That will be used to create TCP healtch checks in Grafana Cloud. If you don't plan on setting up healtch checks, then you don't need to setup a dynamic name resolution in your home router.
+* [ ] either get a static public IP for your server, or set up a dynamic name resolution (most box should offer that). My ISP doesn't offer static IP, but I don't have a dynamic name of the form `<my-sub-domain>.<my-isp-domain>.com`. That will be used to create TCP health checks in Grafana Cloud. If you don't plan on setting up health checks, then you don't need to setup a dynamic name resolution in your home router.
 * [ ] setup port-forwarding for your execution (default `30303`) and consensus (default `9000`) client ports for both UDP and TCP. If you use Cloudflare Tunnel or Tailscale, you shouldn't need to expose any other ports: i.e. my SSH port 22 is NOT exposed.
 
 Domain name
@@ -80,7 +80,7 @@ Grafana Cloud
 * [ ] setup metrics endpoint and update the keys `grafana.metrics_username` and `grafana.prometheus_url` in config file `inventories/prod.yaml`.
 * [ ] setup logs endpoint and update the keys `grafana.logs_username` and `grafana.loki_url` in config file `inventories/prod.yaml`.
 * [ ] define a name for your server with the key `grafana.instance_name` in config file `inventories/prod.yaml`.
-* [ ] create TCP probes (syntetics) on your EL and CL client ports, and using the dynamic name of your ISP internet box.
+* [ ] create TCP probes (synthetic) on your EL and CL client ports, and using the dynamic name of your ISP internet box.
 
 Server
 * [ ] get your hardware.

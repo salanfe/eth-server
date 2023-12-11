@@ -194,7 +194,7 @@ below are possible ideas for future improvements
 
 * [ ] add Tailscale and/or a VPN server as alternatives to Cloudflare Tunnel. Having both Tailscale and Cloudflare Tunnel installed is possible as a fail-safe.
 * [ ] fine tune the grafana agent config: scraping logs, relabeling, etc.
-* [ ] get a definitive solution for the chrony config. Using Google NTP servers works so far, but there's probably a better solution. Additionally, the consensus protocol don't use leap smear time like the Google NTP servers.
+* [ ] get a definitive solution for the chrony config. Using Google NTP servers works so far, but there's probably a better solution. Additionally, the consensus protocol don't use leap smear time like the Google NTP servers [source](https://github.com/ethereum/consensus-specs/blob/36f0bb0ed62b463947fda97f42f8ddebc9565587/specs/phase0/fork-choice.md#fork-choice).
 * [ ] add more tests and validation
 * [ ] get more eyes on the ansible playbook (I'm no expert)
 * [ ] terraform 3rd parties (grafana cloud, cloudflare). Although, those are less critical than the server itself, and doing things by hand is probably fine. It's mainly a one-time setup. Nonetheless, having terraform could possibly speed up onboarding of new joiners (to be balanced with the extra complexity of introducing yet another tool).

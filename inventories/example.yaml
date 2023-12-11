@@ -1,0 +1,34 @@
+# this file is used as a template. Please, don't edit it. Instead copy this file to 2 files: one named `prod.yaml` and the other
+# named `local.yaml`. Then add fill those files with the secret values. Because of the secrets, `prod.yaml` and `local.yaml` are
+# ignored in .gitignore.
+servers:
+  hosts:
+    staker:
+      # ssh connection
+      ansible_host: 127.0.0.1
+      ansible_ssh_port: 2222
+      ansible_ssh_user: vagrant
+      ansible_ssh_private_key_file: .vagrant/machines/default/virtualbox/private_key
+
+  # playbook variables
+  vars:
+    ssh:
+      port: 22
+    consensus:
+      port: 9000
+      metrics_port: 8008
+    execution:
+      port: 30303
+      metrics_port: 6060
+    cloudflare:
+      token: "<secret_token>"
+      metrics_port: 39997
+      release_url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb"
+    grafana:
+      grafana_cloud_api_key: "<secret_api_kei>"
+      metrics_username: "<secret_prom_username>"
+      prometheus_url: "<url_to_your_grafana_cloud_prom_endpoint>"
+      logs_username: "<secret_loki_username>"
+      loki_url: "<url_to_your_grafana_cloud_loki_endpoint>"
+      instance_name: "vagrant-dev"
+      oncall_alertmanager_heartbeat_endpoint: "<url_to_your_grafana_cloud_oncall_alertmananger_endpoint>"

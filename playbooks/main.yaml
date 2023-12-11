@@ -1,0 +1,426 @@
+- name: ping
+  hosts: all
+  tasks:
+    - name: Ping my hosts
+      ansible.builtin.ping:
+
+- name: Update apt cache and upgrade distro
+  become: true
+  hosts: all
+  tasks:
+    - ansible.builtin.apt:
+        update_cache: yes
+        upgrade: safe
+
+- name: Fail2Ban
+  become: true
+  hosts: all
+  tasks:
+    - name: Install fail2ban
+      ansible.builtin.apt:
+        name: fail2ban
+        state: latest
+    - name: Start fail2ban service
+      ansible.builtin.service:
+        name: fail2ban
+        state: started
+        enabled: true
+
+- name: setup ufw firewall
+  become: true
+  hosts: all
+  tasks:
+    - name: Install ufw
+      ansible.builtin.apt:
+        name: ufw
+        state: latest
+    - name: allow SSH
+      community.general.ufw:
+        from_ip: 192.168.0.0/16 # ssh only reachable from local network
+        rule: limit
+        port: "{{ ssh.port }}" 
+        proto: tcp
+    - name: allow Execution Client
+      community.general.ufw:
+        rule: allow
+        port: "{{ execution.port }}"
+    - name: allow Consensus Client
+      community.general.ufw:
+        rule: allow
+        port: "{{ consensus.port }}"
+    - name: Outgoing allow
+      community.general.ufw:
+        rule: allow
+        direction: out
+    - name: Incoming deny
+      community.general.ufw:
+        rule: deny
+        direction: in
+    - name: Enable ufw firewall
+      community.general.ufw:
+        state: enabled
+
+- name: SSH Hardening
+  hosts: all
+  become: true
+  tasks:
+    - name: Copy custom SSH config
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/01-custom.conf # this file overwrites the SSH config
+        owner: root
+        group: root
+        mode: '0600'
+        content: |
+          port {{ ssh.port }}
+          ClientAliveInterval 300
+          ClientAliveCountMax 2
+          X11Forwarding no
+          PermitUserEnvironment no
+          MaxAuthTries 4
+          PasswordAuthentication no
+          PubkeyAuthentication yes
+          PermitRootLogin no
+          PermitEmptyPasswords no
+          UsePAM no
+          ChallengeResponseAuthentication no
+          KerberosAuthentication no
+          GSSAPIAuthentication no
+        backup: yes
+        validate: sshd -t -f %s
+      register: sshd_conf
+    - name: Restart sshd service
+      service:
+        name: sshd
+        state: restarted
+        enabled: true
+      when: sshd_conf.changed
+  post_tasks:
+    - name: Check sshd is running
+      ansible.builtin.wait_for:
+        port: "{{ ssh.port }}"
+        timeout: 1
+        state: started
+
+- name: Chrony config
+  hosts: all
+  become: true
+  tasks:
+    - name: Install chrony
+      ansible.builtin.apt:
+        name: chrony
+        state: latest
+    - name: Replace chrony config
+      ansible.builtin.copy:
+        dest: /etc/chrony/chrony.conf
+        content: |
+          server time1.google.com iburst minpoll 4 maxpoll 6 polltarget 16
+          server time2.google.com iburst minpoll 4 maxpoll 6 polltarget 16
+          server time3.google.com iburst minpoll 4 maxpoll 6 polltarget 16
+          server time4.google.com iburst minpoll 4 maxpoll 6 polltarget 16
+          sourcedir /run/chrony-dhcp
+          keyfile /etc/chrony/chrony.keys
+          driftfile /var/lib/chrony/chrony.drift
+          ntsdumpdir /var/lib/chrony
+          logdir /var/log/chrony
+          maxupdateskew 100.0
+          rtcsync
+          makestep 1 3
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+      register: chrony_conf
+    - name: Restart chrony service
+      ansible.builtin.service:
+        name: chrony
+        state: restarted
+        enabled: true
+      when: chrony_conf.changed
+
+- name: Install Cloudflared
+  hosts: all
+  become: true
+  vars:
+    dir: /etc/systemd/system/cloudflared.service.d
+  tasks:
+    - name: Run cloudflare script
+      ansible.builtin.shell: |
+        if [ -f /etc/systemd/system/cloudflared.service ]; then
+          echo "cloudflare seems to be installed. All good. Returning..."
+          exit 0
+        fi
+        curl -L --output cloudflared.deb {{ cloudflare.release_url }}
+        sudo dpkg -i cloudflared.deb
+        rm cloudflared.deb
+        sudo cloudflared service install {{ cloudflare.token }}
+    - name: Make sure destination dir exists
+      ansible.builtin.file:
+        path: "{{ dir }}"
+        state: directory
+    - name: Set metrics port to a fixed value (random value by default)
+      ansible.builtin.copy:
+        dest: "{{ dir }}/override.conf"
+        content: |
+          [Service]
+          Environment="TUNNEL_METRICS=127.0.0.1:{{ cloudflare.metrics_port }}"
+        owner: root
+        group: root
+        mode: '0644'
+      register: cloudflared_conf
+    - name: Restart cloudflare tunnel to load the systemd config change
+      ansible.builtin.service:
+        name: cloudflared.service
+        enabled: true
+        state: restarted
+        daemon_reload: true # required when systemd files are edited
+      when: cloudflared_conf.changed
+  post_tasks:
+    - name: Check cloudflared metrics port
+      ansible.builtin.wait_for:
+        port: "{{ cloudflare.metrics_port }}"
+        timeout: 1
+        state: started
+
+- name: Update systemd-networkd-wait-online config
+  hosts: all
+  become: true
+  vars:
+    dir: /etc/systemd/system/systemd-networkd-wait-online.service.d
+  tasks:
+    - name: Create override dir
+      ansible.builtin.file:
+        path: "{{ dir }}"
+        state: directory
+    - name: Update systemd-networkd-wait-online systemd config
+      ansible.builtin.copy:
+        dest: "{{ dir }}/override.conf"
+        content: |
+          [Service]
+          ExecStart=
+          ExecStart=/usr/lib/systemd/systemd-networkd-wait-online --any --timeout=10
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Restart systemd-networkd-wait-online
+      ansible.builtin.service:
+        name: systemd-networkd-wait-online.service
+        state: restarted
+        daemon_reload: true # required when systemd files are edited
+
+- name: Install eth-docker and docker
+  hosts: all
+  tasks:
+    - name: Run eth-docker script
+      ansible.builtin.shell: |
+        cd ~
+        if [ -d eth-docker ]; then
+          echo "eth-docker seems to be installed, nothing to be done. Returning..."
+          exit 0
+        fi
+        git clone https://github.com/eth-educators/eth-docker.git
+        printf 'yes\nyes\n' | ./ethd install
+
+- name: Install heartbeah
+  hosts: all
+  become: true
+  vars:
+    script_path: "/usr/bin/heartbeat.sh"
+  tasks:
+    - name: copy script
+      ansible.builtin.copy:
+        dest: "{{ script_path }}"
+        content: |
+          #!/usr/bin/bash
+
+          # poor's man heartbeat. This script sends heartbeats to Grafana Cloud OnCall service.
+
+          GRAFANA_ALERTMANAGER_HEARTBEAT_ENDPOINT=$1
+
+          while true
+          do
+              curl \
+                  -s -w "date=$(date +%FT%T) http_status_code=%{http_code}\n" \
+                  -o /dev/null \
+                  --connect-timeout 5 \
+                  --max-time 10 \
+                  "${GRAFANA_ALERTMANAGER_HEARTBEAT_ENDPOINT}"
+              sleep 15
+          done
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Set systemd service
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/heartbeat.service"
+        content: |
+          [Unit]
+          Description=poor-man-heartbeat
+          After=network.target
+
+          [Service]
+          ExecStart={{ script_path }} {{ grafana.oncall_alertmanager_heartbeat_endpoint }}
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+        owner: root
+        group: root
+        mode: '0644'
+      register: heartbeat_conf
+    - name: Restart heartbeat
+      ansible.builtin.service:
+        name: heartbeat
+        enabled: true
+        state: restarted
+        daemon_reload: true # required when systemd files are edited
+      when: heartbeat_conf.changed
+
+# doc https://grafana.com/docs/grafana-cloud/monitor-infrastructure/integrations/integration-reference/integration-docker/
+- name: Install Grafana Agent
+  hosts: all
+  become: true
+  tasks:
+    - name: Install Grafana Agent
+      ansible.builtin.include_role:
+        name: grafana.grafana.grafana_agent
+      # role doc: https://github.com/grafana/grafana-ansible-collection/blob/main/roles/grafana_agent/README.md
+      vars:
+        grafana_agent_user: root # required by cAdvisor
+        grafana_agent_user_groups:
+        - docker # required by cAdvisor
+        grafana_agent_metrics_config:
+          configs:
+            - name: integrations
+              remote_write:
+                - basic_auth:
+                    password: "{{ grafana.grafana_cloud_api_key }}"
+                    username: "{{ grafana.metrics_username }}"
+                  url: "{{ grafana.prometheus_url }}"
+              scrape_configs:
+                - job_name: "{{ execution.client }}"
+                  metrics_path: /metrics
+                  scheme: http
+                  static_configs:
+                    - targets:
+                        - 127.0.0.1:{{ execution.metrics_port }}
+                - job_name: "{{ consensus.client }}"
+                  metrics_path: /metrics
+                  scheme: http
+                  static_configs:
+                    - targets:
+                        - 127.0.0.1:{{ consensus.metrics_port }}
+                - job_name: cloudflared
+                  metrics_path: /metrics
+                  scheme: http
+                  static_configs:
+                    - targets:
+                        - 127.0.0.1:{{ cloudflare.metrics_port }}
+
+          global:
+            scrape_interval: 15s
+            scrape_timeout: 10s
+          wal_directory: /tmp/grafana-agent-wal
+
+        grafana_agent_logs_config:
+          configs:
+            - name: integrations
+              clients:
+                - basic_auth:
+                    password: "{{ grafana.grafana_cloud_api_key }}"
+                    username: "{{ grafana.logs_username }}"
+                  url: "{{ grafana.loki_url }}"
+              positions:
+                filename: /tmp/positions.yaml
+              target_config:
+                sync_period: 10s
+              scrape_configs:
+                - job_name: varlogs
+                  static_configs:
+                    - targets: [localhost]
+                      labels:
+                        instance: "{{ grafana.instance_name }}"
+                        job: varlogs
+                        __path__: /var/log/*log
+                # Add here any snippet that belongs to the `logs.configs.scrape_configs` section.
+                # For a correct indentation, paste snippets copied from Grafana Cloud at the beginning of the line.
+                - job_name: integrations/docker
+                  docker_sd_configs:
+                    - host: unix:///var/run/docker.sock
+                      refresh_interval: 5s
+                  relabel_configs:
+                    - action: replace
+                      replacement: integrations/docker
+                      target_label: job
+                    - action: replace
+                      replacement: "{{ grafana.instance_name }}"
+                      target_label: instance
+                    - source_labels:
+                        - __meta_docker_container_name
+                      regex: '/(.*)'
+                      target_label: container
+                    - source_labels:
+                        - __meta_docker_container_log_stream
+                      target_label: stream
+        grafana_agent_integrations_config:
+          prometheus_remote_write:
+            - basic_auth:
+                password: "{{ grafana.grafana_cloud_api_key }}"
+                username: "{{ grafana.metrics_username }}"
+              url: "{{ grafana.prometheus_url }}"
+          cadvisor:
+            enabled: true
+            docker_only: true
+            instance: "{{ grafana.instance_name }}"
+            relabel_configs:
+              - action: replace
+                replacement: integrations/docker
+                target_label: job
+            metric_relabel_configs:
+              - action: keep
+                regex: container_cpu_usage_seconds_total|container_fs_inodes_free|container_fs_inodes_total|container_fs_limit_bytes|container_fs_usage_bytes|container_last_seen|container_memory_usage_bytes|container_network_receive_bytes_total|container_network_tcp_usage_total|container_network_transmit_bytes_total|container_spec_memory_reservation_limit_bytes|machine_memory_bytes|machine_scrape_error
+                source_labels:
+                  - __name__
+          agent:
+            enabled: true
+            relabel_configs:
+              - action: replace
+                source_labels:
+                  - agent_hostname
+                target_label: instance
+              - action: replace
+                target_label: job
+                replacement: "integrations/agent-check"
+            metric_relabel_configs:
+              - action: keep
+                regex: (prometheus_target_.*|prometheus_sd_discovered_targets|agent_build.*|agent_wal_samples_appended_total|process_start_time_seconds)
+                source_labels:
+                  - __name__
+          # Add here any snippet that belongs to the `integrations` section.
+          # For a correct indentation, paste snippets copied from Grafana Cloud at the beginning of the line.
+          node_exporter:
+            enabled: true
+            # disable unused collectors
+            disable_collectors:
+              - ipvs #high cardinality on kubelet
+              - btrfs
+              - infiniband
+              - xfs
+              - zfs
+            # exclude dynamic interfaces
+            netclass_ignored_devices: "^(veth.*|cali.*|[a-f0-9]{15})$"
+            netdev_device_exclude: "^(veth.*|cali.*|[a-f0-9]{15})$"
+            # disable tmpfs
+            filesystem_fs_types_exclude: "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|tmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
+            # drop extensive scrape statistics
+            relabel_configs:
+              - replacement: "{{ grafana.instance_name }}"
+                target_label: instance
+            metric_relabel_configs:
+              - action: drop
+                regex: node_scrape_collector_.+
+                source_labels:
+                  - __name__
+              - action: keep
+                regex: node_arp_entries|node_boot_time_seconds|node_context_switches_total|node_cpu_seconds_total|node_disk_io_time_seconds_total|node_disk_io_time_weighted_seconds_total|node_disk_read_bytes_total|node_disk_read_time_seconds_total|node_disk_reads_completed_total|node_disk_write_time_seconds_total|node_disk_writes_completed_total|node_disk_written_bytes_total|node_filefd_allocated|node_filefd_maximum|node_filesystem_avail_bytes|node_filesystem_device_error|node_filesystem_files|node_filesystem_files_free|node_filesystem_readonly|node_filesystem_size_bytes|node_intr_total|node_load1|node_load15|node_load5|node_md_disks|node_md_disks_required|node_memory_Active_anon_bytes|node_memory_Active_bytes|node_memory_Active_file_bytes|node_memory_AnonHugePages_bytes|node_memory_AnonPages_bytes|node_memory_Bounce_bytes|node_memory_Buffers_bytes|node_memory_Cached_bytes|node_memory_CommitLimit_bytes|node_memory_Committed_AS_bytes|node_memory_DirectMap1G_bytes|node_memory_DirectMap2M_bytes|node_memory_DirectMap4k_bytes|node_memory_Dirty_bytes|node_memory_HugePages_Free|node_memory_HugePages_Rsvd|node_memory_HugePages_Surp|node_memory_HugePages_Total|node_memory_Hugepagesize_bytes|node_memory_Inactive_anon_bytes|node_memory_Inactive_bytes|node_memory_Inactive_file_bytes|node_memory_Mapped_bytes|node_memory_MemAvailable_bytes|node_memory_MemFree_bytes|node_memory_MemTotal_bytes|node_memory_SReclaimable_bytes|node_memory_SUnreclaim_bytes|node_memory_ShmemHugePages_bytes|node_memory_ShmemPmdMapped_bytes|node_memory_Shmem_bytes|node_memory_Slab_bytes|node_memory_SwapTotal_bytes|node_memory_VmallocChunk_bytes|node_memory_VmallocTotal_bytes|node_memory_VmallocUsed_bytes|node_memory_WritebackTmp_bytes|node_memory_Writeback_bytes|node_netstat_Icmp6_InErrors|node_netstat_Icmp6_InMsgs|node_netstat_Icmp6_OutMsgs|node_netstat_Icmp_InErrors|node_netstat_Icmp_InMsgs|node_netstat_Icmp_OutMsgs|node_netstat_IpExt_InOctets|node_netstat_IpExt_OutOctets|node_netstat_TcpExt_ListenDrops|node_netstat_TcpExt_ListenOverflows|node_netstat_TcpExt_TCPSynRetrans|node_netstat_Tcp_InErrs|node_netstat_Tcp_InSegs|node_netstat_Tcp_OutRsts|node_netstat_Tcp_OutSegs|node_netstat_Tcp_RetransSegs|node_netstat_Udp6_InDatagrams|node_netstat_Udp6_InErrors|node_netstat_Udp6_NoPorts|node_netstat_Udp6_OutDatagrams|node_netstat_Udp6_RcvbufErrors|node_netstat_Udp6_SndbufErrors|node_netstat_UdpLite_InErrors|node_netstat_Udp_InDatagrams|node_netstat_Udp_InErrors|node_netstat_Udp_NoPorts|node_netstat_Udp_OutDatagrams|node_netstat_Udp_RcvbufErrors|node_netstat_Udp_SndbufErrors|node_network_carrier|node_network_info|node_network_mtu_bytes|node_network_receive_bytes_total|node_network_receive_compressed_total|node_network_receive_drop_total|node_network_receive_errs_total|node_network_receive_fifo_total|node_network_receive_multicast_total|node_network_receive_packets_total|node_network_speed_bytes|node_network_transmit_bytes_total|node_network_transmit_compressed_total|node_network_transmit_drop_total|node_network_transmit_errs_total|node_network_transmit_fifo_total|node_network_transmit_multicast_total|node_network_transmit_packets_total|node_network_transmit_queue_length|node_network_up|node_nf_conntrack_entries|node_nf_conntrack_entries_limit|node_os_info|node_sockstat_FRAG6_inuse|node_sockstat_FRAG_inuse|node_sockstat_RAW6_inuse|node_sockstat_RAW_inuse|node_sockstat_TCP6_inuse|node_sockstat_TCP_alloc|node_sockstat_TCP_inuse|node_sockstat_TCP_mem|node_sockstat_TCP_mem_bytes|node_sockstat_TCP_orphan|node_sockstat_TCP_tw|node_sockstat_UDP6_inuse|node_sockstat_UDPLITE6_inuse|node_sockstat_UDPLITE_inuse|node_sockstat_UDP_inuse|node_sockstat_UDP_mem|node_sockstat_UDP_mem_bytes|node_sockstat_sockets_used|node_softnet_dropped_total|node_softnet_processed_total|node_softnet_times_squeezed_total|node_systemd_unit_state|node_textfile_scrape_error|node_time_zone_offset_seconds|node_timex_estimated_error_seconds|node_timex_maxerror_seconds|node_timex_offset_seconds|node_timex_sync_status|node_uname_info|node_vmstat_oom_kill|node_vmstat_pgfault|node_vmstat_pgmajfault|node_vmstat_pgpgin|node_vmstat_pgpgout|node_vmstat_pswpin|node_vmstat_pswpout|process_max_fds|process_open_fds
+                source_labels:
+                  - __name__

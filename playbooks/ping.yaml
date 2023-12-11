@@ -1,0 +1,6 @@
+# dummy playbook to be run during "vagrant up" command calling the file Vagrantfile
+- name: ping
+  hosts: all
+  tasks:
+    - name: Ping my hosts
+      ansible.builtin.ping:

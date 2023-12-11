@@ -5,7 +5,7 @@ This project is inspired by [Eth Docker](https://eth-docker.net/) and they are c
 1. eth-server sets up your staking server
 2. then eth-docker sets up your ethereum clients
 
-So far, this project works for me and I feel like sharing it. My current motivation is to inspire others, but not necessary to extend it so that I can meet everyone's custom needs and setup.
+So far, this project works for me and I feel like sharing it. My current motivation is to inspire others, but not necessary to extend it so that it meets everyone's custom needs and setup.
 
 Eth Docker is a real utility software. This project here is mainly hacked together.
 

@@ -55,8 +55,6 @@ It is useful to correlate network issues, or discarding them. Which points to th
 You don't need most of the below to test the ansible script locally. On your laptop, Vagrant is used to spin up Ubuntu in a VM, that ansible uses to test the playbooks against. The below points are for the real staking server. For locally testing on your laptop, feel free to skip this section.
 
 Laptop
-* [ ] create an SSH key pair. And upload the public key to the server.
-* [ ] edit your ssh config `~.ssh/config` with the server host and the key to be used.
 * [ ] install [Vagrant](https://developer.hashicorp.com/vagrant/docs/installation)
 * [ ] install [VirtualBox](https://www.virtualbox.org/) to be used by Vagrant
 * [ ] install [Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html)
@@ -89,6 +87,10 @@ Server
 * [ ] install the OS.
 * [ ] make sure you have correctly expanded your volumes and that the OS sees the full capacity of your disks.
 * [ ] make sure you are using your SSH key when SSHing into the server: if you're using the username/password and run the ansible playbook, you will be locked out of the server, because password authentication is disabled.
+
+Laptop
+* [ ] create an SSH key pair. And upload the public key to the server.
+* [ ] edit your ssh config `~.ssh/config` with the server host and the key to be used.
 
 ## Config
 

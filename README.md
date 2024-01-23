@@ -192,12 +192,12 @@ if you want to dynamically pass secrets, you can use the flag `--extra-vars` (se
 
 below are possible ideas for future improvements
 
-* [ ] add Tailscale and/or a VPN server as alternatives to Cloudflare Tunnel. Having both Tailscale and Cloudflare Tunnel installed is possible as a fail-safe.
+* [ ] add Tailscale and/or a VPN server as alternatives to Cloudflare Tunnel. Having both Tailscale and Cloudflare Tunnel installed can offer a fail-safe alternative.
 * [ ] fine tune the grafana agent config: scraping logs, relabeling, etc.
 * [ ] get a definitive solution for the chrony config. Using Google NTP servers works so far, but there's probably a better solution. Additionally, the consensus protocol don't use leap smear time like the Google NTP servers [source](https://github.com/ethereum/consensus-specs/blob/36f0bb0ed62b463947fda97f42f8ddebc9565587/specs/phase0/fork-choice.md#fork-choice).
 * [ ] add more tests and validation
-* [ ] get more eyes on the ansible playbook (I'm no expert)
-* [ ] terraform 3rd parties (grafana cloud, cloudflare). Although, those are less critical than the server itself, and doing things by hand is probably fine. It's mainly a one-time setup. Nonetheless, having terraform could possibly speed up onboarding of new joiners (to be balanced with the extra complexity of introducing yet another tool).
+* [ ] get more eyes on the ansible playbook
+* [ ] terraform 3rd parties (grafana cloud, cloudflare). Although, those are less critical than the server itself, and doing things by hand is probably fine: as it's mainly a one-time setup. Nonetheless, having terraform could possibly speed up onboarding of new joiners (to be balanced with the extra complexity of introducing yet another tool).
 * [ ] use Ansible to manage the eth-docker `.env` file. But there should be a reconciliation logic going both ways, making it probably more error prone than necessary. Nonetheless, if the server dies, having a copy of the `.env` file is also a good thing.
 * [ ] better solution to manage secrets (e.g. I like working with Google Cloud... add a script to pull secret from Google Secret Manager). E.g. see below
 
@@ -222,6 +222,15 @@ Currently running a node will the following hardware
 * RAM: Crucial DDR4 ECC UDIMM 2Rx8 3200 (1 x 32GB, 3200 MHz, DDR4-RAM, DIMM)
 * CPU: Intel Core i3-10105F (LGA 1200, 3.70 GHz, 4 -Core)
 * PSU: Cooler Master V Series SFX (750 W)
+
+## My Clients
+
+Running Besu and Teku to contribute with the minority clients.
+
+## Credits and Inspiration
+
+* https://github.com/eth-educators/eth-docker: no need to introduce that one.
+* https://github.com/CryptoManufaktur-io/backend-ansible: the people being eth-docker also maintain an ansible repo for running nodes. Much more advanced (but also complex), this is worth giving a look.
 
 ## How to Contribute
 

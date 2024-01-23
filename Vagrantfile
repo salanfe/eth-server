@@ -12,7 +12,7 @@ Vagrant.configure("2") do |config|
 
     # Every Vagrant development environment requires a box. You can search for
     # boxes at https://vagrantcloud.com/search.
-    config.vm.box = "bento/ubuntu-22.04"
+    config.vm.box = "ubuntu/jammy64"
 
     config.vm.provision "ansible" do |ansible|
       ansible.compatibility_mode="2.0"
